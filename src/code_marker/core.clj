@@ -9,6 +9,22 @@
 (defn clear-registry []
   (reset! registry {}))
 
+(defmulti inject (fn [mark entry code] mark))
+(defmethod inject :default [_ _ code] code)
+
+(def ^:private options
+  (atom {:injector inject}))
+
+(defn injector []
+  (:injector @options))
+
+(defn set-options! [{:keys [injector] :or {injector :default}}]
+  (swap! options
+         (fn [options]
+           (cond-> options
+             (not= injector :default) (assoc :injector injector))))
+  nil)
+
 (s/fdef with-mark
   :args (s/cat :mark keyword? :comment (s/? string?) :body (s/* any?)))
 
@@ -19,7 +35,9 @@
         entry (cond-> {:ns (ns-name *ns*) :file *file* :line line :column column :mark mark}
                 comment (assoc :comment comment))]
     (swap! registry assoc-in [mark *file* [line column]] entry)
-    `(do ~@body)))
+    (if-let [inject (injector)]
+      (inject mark entry `(do ~@body))
+      `(do ~@body))))
 
 (defn print-code [{:keys [file line column]}]
   (when-let [strm (.getResourceAsStream (RT/baseLoader) file)]
