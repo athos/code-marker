@@ -1,5 +1,6 @@
 (ns code-marker.core
   (:refer-clojure :exclude [list])
+  (:require [clojure.spec.alpha :as s])
   (:import [clojure.lang RT]
            [java.io LineNumberReader InputStreamReader PushbackReader]))
 
@@ -8,6 +9,8 @@
 (defn clear-registry []
   (reset! registry {}))
 
+(s/fdef with-mark
+  :args (s/cat :mark keyword? :comment (s/? string?) :body (s/* any?)))
 
 (defmacro with-mark [mark & [maybe-comment & body]]
   (let [{:keys [line column]} (meta &form)
